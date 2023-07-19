@@ -72,6 +72,7 @@ class Grader:
                 rubric_text.append(f"description:{r['description']}\n" + "\n".join(
                     [f"points:{rating['points']} points: {rating['description']}" for rating in r['ratings']]))
             elif 'points_possible' in r:
+                rubric_text.append(f"points_possible:{r['points_possible']}")
                 print("added points_possible")
             elif 'title' in r:  # Check if title exists in rubric
                 self.title = r['title']  # Save title for later use

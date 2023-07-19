@@ -28,6 +28,7 @@ grader_qa = None
 
 def add_text(history, text):
     print("Question asked: " + text)
+    get_grading_status(history)
     response = run_model(text)
     history = history + [(text, response)]
     print(history)
@@ -38,15 +39,6 @@ def run_model(text):
     global grader, grader_qa
     start_time = time.time()
     print("start time:" + str(start_time))
-    if not grader_qa and not grader:
-        if os.path.isfile(pickle_file) and os.path.isfile(index_file) and os.path.getsize(
-                pickle_file) > 0 and os.path.isfile('docs/discussion_entries.json') and os.path.isfile(
-            'docs/rubric-data.json') > 0:
-            grader = Grader(qa_model)
-            grader_qa = GraderQA(grader, embeddings)
-    elif not grader_qa:
-        grader.llm.model_name = qa_model
-        grader_qa = GraderQA(grader, embeddings)
     response = grader_qa.chain(text)
     sources = []
     for document in response['source_documents']:
