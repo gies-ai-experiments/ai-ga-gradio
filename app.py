@@ -19,8 +19,8 @@ index_file = "vector_stores/canvas-discussions.index"
 grading_model = 'gpt-4'
 qa_model = 'gpt-3.5-turbo-16k'
 
-llm = ChatOpenAI(model_name=qa_model, temperature=0, verbose=True)
-embeddings = OpenAIEmbeddings(model='text-embedding-ada-002')
+llm = None
+embeddings = None
 
 grader = None
 grader_qa = None
@@ -71,13 +71,21 @@ def set_model(history):
 
 
 def ingest(url, canvas_api_key, openai_api_key, history):
-    global grader
+    global grader, llm, embeddings
+    set_key_and_llm(openai_api_key)
     text = f"Download data from {url} and ingest it to grade discussions"
     ingest_canvas_discussions(url, canvas_api_key)
     grader = Grader(grading_model)
     response = "Ingested canvas data successfully"
     history = history + [(text, response)]
     return get_grading_status(history)
+
+
+def set_key_and_llm(openai_api_key):
+    global llm, embeddings
+    os.environ['OPENAI_API_KEY'] = openai_api_key
+    llm = ChatOpenAI(model_name=qa_model, temperature=0, verbose=True)
+    embeddings = OpenAIEmbeddings(model='text-embedding-ada-002')
 
 
 def start_grading(url, canvas_api_key, openai_api_key, history):
