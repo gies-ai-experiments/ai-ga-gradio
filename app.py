@@ -19,8 +19,8 @@ index_file = "vector_stores/canvas-discussions.index"
 grading_model = 'gpt-4'
 qa_model = 'gpt-3.5-turbo-16k'
 
-llm = None
-embeddings = None
+llm = ChatOpenAI(model_name=qa_model, temperature=0, verbose=True)
+embeddings = OpenAIEmbeddings(model='text-embedding-ada-002')
 
 grader = None
 grader_qa = None
@@ -40,7 +40,7 @@ def run_model(text):
     print("start time:" + str(start_time))
     if not grader_qa and not grader:
         if os.path.isfile(pickle_file) and os.path.isfile(index_file) and os.path.getsize(
-                pickle_file) > 0 and os.path.isfile('docs/discussion_entries.json.json') and os.path.isfile(
+                pickle_file) > 0 and os.path.isfile('docs/discussion_entries.json') and os.path.isfile(
             'docs/rubric-data.json') > 0:
             grader = Grader(qa_model)
             grader_qa = GraderQA(grader, embeddings)
@@ -69,10 +69,8 @@ def set_model(history):
     history = get_first_message(history)
     return history
 
-
-def ingest(url, canvas_api_key, openai_api_key, history):
+def ingest(url, canvas_api_key, history):
     global grader, llm, embeddings
-    set_key_and_llm(openai_api_key)
     text = f"Download data from {url} and ingest it to grade discussions"
     ingest_canvas_discussions(url, canvas_api_key)
     grader = Grader(grading_model)
@@ -80,18 +78,10 @@ def ingest(url, canvas_api_key, openai_api_key, history):
     history = history + [(text, response)]
     return get_grading_status(history)
 
-
-def set_key_and_llm(openai_api_key):
-    global llm, embeddings
-    os.environ['OPENAI_API_KEY'] = openai_api_key
-    llm = ChatOpenAI(model_name=qa_model, temperature=0, verbose=True)
-    embeddings = OpenAIEmbeddings(model='text-embedding-ada-002')
-
-
-def start_grading(url, canvas_api_key, openai_api_key, history):
+def start_grading(url, canvas_api_key, history):
     global grader, grader_qa
     text = f"Start grading discussions from {url}"
-    if not url or not canvas_api_key or not openai_api_key:
+    if not url or not canvas_api_key:
         response = "Please enter all the fields to initiate grading"
     elif grader:
         # Create a new event loop
@@ -112,8 +102,12 @@ def start_grading(url, canvas_api_key, openai_api_key, history):
 
 
 def start_downloading():
-    # grader.download()
-    return "Downloaded"
+    files = glob.glob("output/*.csv")
+    if files:
+        file = files[0]
+        return gr.outputs.File(file)
+    else:
+        return "File not found"
 
 
 def get_first_message(history):
@@ -134,26 +128,25 @@ def get_grading_status(history):
         elif not grader_qa:
             grader_qa = GraderQA(grader, embeddings)
         history = history + [(None, 'Grading is already complete. You can now ask questions')]
-        enable_fields(False, False, False, False, False, True, True, True)
+        enable_fields(False, False, False, False, True, True, True)
     # Check if data is ingested
     elif len(glob.glob("docs/*.json")) > 0 and len(glob.glob("docs/*.html")):
         if not grader_qa:
             grader = Grader(qa_model)
         history = history + [(None, 'Canvas data is already ingested. You can grade discussions now')]
-        enable_fields(False, False, False, False, True, True, False, False)
+        enable_fields(False, False, False, True, True, False, False)
     else:
         history = history + [(None, 'Please ingest data and start grading')]
         url.disabled = True
-        enable_fields(True, True, True, True, True, True, False, False)
+        enable_fields(True, True, True, True, True, False, False)
     return history
 
 
 # handle enable/disable of fields
-def enable_fields(url_status, canvas_api_key_status, openai_api_key_status, submit_status, grade_status,
+def enable_fields(url_status, canvas_api_key_status, submit_status, grade_status,
                   download_status, chatbot_txt_status, chatbot_btn_status):
     url.interactive = url_status
     canvas_api_key.interactive = canvas_api_key_status
-    openai_api_key.interactive = openai_api_key_status
     submit.interactive = submit_status
     grade.interactive = grade_status
     download.interactive = download_status
@@ -167,8 +160,6 @@ def enable_fields(url_status, canvas_api_key_status, openai_api_key_status, subm
         url.placeholder = "Data already ingested"
     if not canvas_api_key_status:
         canvas_api_key.placeholder = "Data already ingested"
-    if not openai_api_key_status:
-        openai_api_key.placeholder = "Data already ingested"
 
 def bot(history):
     return history
@@ -188,11 +179,6 @@ with gr.Blocks() as demo:
             placeholder="Enter your Canvas API Key", type="password"
         )
 
-        openai_api_key = gr.Textbox(
-            label="OpenAI API Key",
-            placeholder="Enter your OpenAI API Key", type="password"
-        )
-
     with gr.Row():
         submit = gr.Button(value="Submit", variant="secondary", )
         grade = gr.Button(value="Grade", variant="secondary")
@@ -210,12 +196,12 @@ with gr.Blocks() as demo:
         ask = gr.Button(value="Ask", variant="secondary", scale=1)
 
     chatbot.value = get_first_message([])
-    submit.click(ingest, inputs=[url, canvas_api_key, openai_api_key, chatbot], outputs=[chatbot],
+    submit.click(ingest, inputs=[url, canvas_api_key, chatbot], outputs=[chatbot],
                  postprocess=False).then(
         bot, chatbot, chatbot
     )
 
-    grade.click(start_grading, inputs=[url, canvas_api_key, openai_api_key, chatbot], outputs=[chatbot],
+    grade.click(start_grading, inputs=[url, canvas_api_key, chatbot], outputs=[chatbot],
                 postprocess=False).then(
         bot, chatbot, chatbot
     )

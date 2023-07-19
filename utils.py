@@ -24,7 +24,7 @@ def get_chat_history(inputs) -> str:
     return "\n".join(res)
 
 
-class GraderQA():
+class GraderQA:
     def __init__(self, grader, embeddings):
         self.grader = grader
         self.llm = self.grader.llm
