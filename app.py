@@ -71,7 +71,7 @@ def set_model(history):
 
 def ingest(url, canvas_api_key, history):
     global grader, llm, embeddings
-    text = f"Download data from {url} and ingest it to grade discussions"
+    text = f"Downloaded discussion data from {url} to start grading"
     ingest_canvas_discussions(url, canvas_api_key)
     grader = Grader(grading_model)
     response = "Ingested canvas data successfully"
@@ -84,6 +84,8 @@ def start_grading(url, canvas_api_key, history):
     if not url or not canvas_api_key:
         response = "Please enter all the fields to initiate grading"
     elif grader:
+        if grader.llm.model_name != grading_model:
+            grader = Grader(grading_model)
         # Create a new event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -160,6 +162,7 @@ def enable_fields(url_status, canvas_api_key_status, submit_status, grade_status
         url.placeholder = "Data already ingested"
     if not canvas_api_key_status:
         canvas_api_key.placeholder = "Data already ingested"
+
 
 def bot(history):
     return history
