@@ -1,7 +1,8 @@
 import asyncio
+import glob
 import os
 import time
-import glob
+
 import gradio as gr
 from dotenv import load_dotenv
 from langchain.chat_models import ChatOpenAI
@@ -17,7 +18,7 @@ pickle_file = "vector_stores/canvas-discussions.pkl"
 index_file = "vector_stores/canvas-discussions.index"
 
 grading_model = 'gpt-4'
-qa_model = 'gpt-3.5-turbo-16k'
+qa_model = 'gpt-4'
 
 llm = ChatOpenAI(model_name=qa_model, temperature=0, verbose=True)
 embeddings = OpenAIEmbeddings(model='text-embedding-ada-002')
@@ -28,7 +29,6 @@ grader_qa = None
 
 def add_text(history, text):
     print("Question asked: " + text)
-    get_grading_status(history)
     response = run_model(text)
     history = history + [(text, response)]
     print(history)
@@ -43,16 +43,16 @@ def run_model(text):
     sources = []
     for document in response['source_documents']:
         sources.append(str(document.metadata))
-        print(sources)
 
     source = ','.join(set(sources))
-    response = response['answer'] + '\nSources: ' + source
+    response = response['answer'] + '\nSources: ' + str(len(sources))
     end_time = time.time()
     # # If response contains string `SOURCES:`, then add a \n before `SOURCES`
     # if "SOURCES:" in response:
     #     response = response.replace("SOURCES:", "\nSOURCES:")
     response = response + "\n\n" + "Time taken: " + str(end_time - start_time)
     print(response)
+    print(sources)
     print("Time taken: " + str(end_time - start_time))
     return response
 
@@ -68,16 +68,15 @@ def ingest(url, canvas_api_key, history):
     grader = Grader(grading_model)
     response = "Ingested canvas data successfully"
     history = history + [(text, response)]
-    return get_grading_status(history)
+    return history
 
-def start_grading(url, canvas_api_key, history):
+
+def start_grading(history):
     global grader, grader_qa
     text = f"Start grading discussions from {url}"
-    if not url or not canvas_api_key:
-        response = "Please enter all the fields to initiate grading"
-    elif grader:
-        if grader.llm.model_name != grading_model:
-            grader = Grader(grading_model)
+    if grader:
+        # if grader.llm.model_name != grading_model:
+        #     grader = Grader(grading_model)
         # Create a new event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -108,26 +107,28 @@ def get_first_message(history):
     global grader_qa
     history = [(None,
                 'Get feedback on your canvas discussions. Add your discussion url and get your discussions graded in instantly.')]
-    history = get_grading_status(history)
-    return history
+    return get_grading_status(history)
 
 
 def get_grading_status(history):
     global grader, grader_qa
     # Check if grading is complete
-    if os.path.isdir('output') and len(glob.glob("docs/*.json")) > 0 and len(glob.glob("docs/*.html")) > 0:
+    if os.path.isdir('output') and len(glob.glob("output/*.csv")) > 0 and len(glob.glob("docs/*.json")) > 0 and len(
+            glob.glob("docs/*.html")) > 0:
         if not grader:
             grader = Grader(qa_model)
             grader_qa = GraderQA(grader, embeddings)
         elif not grader_qa:
             grader_qa = GraderQA(grader, embeddings)
-        history = history + [(None, 'Grading is already complete. You can now ask questions')]
+        if len(history) == 1:
+            history = history + [(None, 'Grading is already complete. You can now ask questions')]
         enable_fields(False, False, False, False, True, True, True)
     # Check if data is ingested
     elif len(glob.glob("docs/*.json")) > 0 and len(glob.glob("docs/*.html")):
         if not grader_qa:
             grader = Grader(qa_model)
-        history = history + [(None, 'Canvas data is already ingested. You can grade discussions now')]
+        if len(history) == 1:
+            history = history + [(None, 'Canvas data is already ingested. You can grade discussions now')]
         enable_fields(False, False, False, True, True, False, False)
     else:
         history = history + [(None, 'Please ingest data and start grading')]
@@ -157,7 +158,7 @@ def enable_fields(url_status, canvas_api_key_status, submit_status, grade_status
 
 
 def bot(history):
-    return history
+    return get_grading_status(history)
 
 
 with gr.Blocks() as demo:
@@ -196,7 +197,7 @@ with gr.Blocks() as demo:
         bot, chatbot, chatbot
     )
 
-    grade.click(start_grading, inputs=[url, canvas_api_key, chatbot], outputs=[chatbot],
+    grade.click(start_grading, inputs=[chatbot], outputs=[chatbot],
                 postprocess=False).then(
         bot, chatbot, chatbot
     )
@@ -212,8 +213,6 @@ with gr.Blocks() as demo:
     ask.click(add_text, inputs=[chatbot, txt], outputs=[chatbot, txt], postprocess=False,).then(
         bot, chatbot, chatbot
     )
-
-    set_model(chatbot)
 
 if __name__ == "__main__":
     demo.queue()

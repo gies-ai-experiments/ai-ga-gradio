@@ -2,12 +2,11 @@ import os
 
 from langchain import FAISS
 from langchain.chains import ConversationalRetrievalChain
-from langchain.document_loaders import DirectoryLoader, UnstructuredHTMLLoader, TextLoader, CSVLoader
-from langchain.memory import ConversationSummaryBufferMemory
+from langchain.chat_models import ChatOpenAI
+from langchain.document_loaders import CSVLoader
+from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
-from langchain.text_splitter import RecursiveCharacterTextSplitter, Language
-
-from grader import Grader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 
 def search_index_from_docs(source_chunks, embeddings):
@@ -86,28 +85,74 @@ class GraderQA:
     def create_chain(self, embeddings):
         if not self.search_index:
             self.search_index = self.load_index(embeddings)
-        chain = ConversationalRetrievalChain.from_llm(self.llm, self.search_index.as_retriever(search_type='mmr',
-                                                                                search_kwargs={'lambda_mult': 1,
-                                                                                               'fetch_k': 50,
-                                                                                               'k': 30}),
+
+        question_prompt, combine_prompt = self.create_map_reduce_prompt()
+
+        chain = ConversationalRetrievalChain.from_llm(llm=self.llm, chain_type='map_reduce',
+                                                      retriever=self.search_index.as_retriever(search_type='mmr',
+                                                                                               search_kwargs={
+                                                                                                   'lambda_mult': 1,
+                                                                                                   'fetch_k': 50,
+                                                                                                   'k': 30}),
                                                       return_source_documents=True,
                                                       verbose=True,
-                                                      memory=ConversationSummaryBufferMemory(memory_key='chat_history',
-                                                                                             llm=self.llm,
-                                                                                             max_token_limit=40,
-                                                                                             return_messages=True,
-                                                                                             output_key='answer'),
-                                                      get_chat_history=get_chat_history,
-                                                      combine_docs_chain_kwargs={"prompt": self.create_prompt()})
+                                                      memory=ConversationBufferMemory(memory_key='chat_history',
+                                                                                      return_messages=True,
+                                                                                      output_key='answer'),
+                                                      condense_question_llm=ChatOpenAI(temperature=0,
+                                                                                       model='gpt-3.5-turbo'),
+                                                      combine_docs_chain_kwargs={"question_prompt": question_prompt,
+                                                                                 "combine_prompt": combine_prompt})
         return chain
 
+    def create_map_reduce_prompt(self):
+        system_template = f"""Use the following portion of a long grading results document to answer the question BUT ONLY FOR THE STUDENT MENTIONED. Use the following examples to take guidance on how to answer the question.
+        Examples:
+        Question: How many students participated in the discussion?
+        Answer: This student participated in the discussion./This student did not participate in the discussion.
+        Question: What was the average score for the discussion?
+        Answer: This student received a score of 10/10 for the discussion.
+        Question: How many students received a full score?/How many students did not receive a full score?
+        Answer: This student received a full score./This student did not receive a full score.
+        Question: How many students lost marks in X category of the rubric?
+        Answer: This student lost marks in X category of the rubric./This student did not lose marks in X category of the rubric.
+        
+        
+        ______________________
+        Grading Result For:
+        {{context}}
+        ______________________
+        Following are the instructions and rubric of the discussion post for reference, used to grade the discussion.
+        ----------------
+        Instructions and Rubric:
+        {self.rubric_text}
+        """
+        messages = [
+            SystemMessagePromptTemplate.from_template(system_template),
+            HumanMessagePromptTemplate.from_template("{question}"),
+        ]
+        CHAT_QUESTION_PROMPT = ChatPromptTemplate.from_messages(messages)
+        system_template = """You are Canvas Discussions Grading + Feedback QA Bot. Have a conversation with a human, answering the questions about the grading results, feedback, answers as accurately as possible.
+        Use the following answers for each student to answer the users question as accurately as possible. 
+        You are an expert at basic calculations and answering questions on grading results and can answer the following questions with ease.
+        If you don't know the answer, just say that you don't know. Don't try to make up an answer.
+        ______________________
+        {summaries}"""
+        messages = [
+            SystemMessagePromptTemplate.from_template(system_template),
+            HumanMessagePromptTemplate.from_template("{question}"),
+        ]
+        CHAT_COMBINE_PROMPT = ChatPromptTemplate.from_messages(messages)
+        return CHAT_QUESTION_PROMPT, CHAT_COMBINE_PROMPT
+
     def create_prompt(self):
-        system_template = f"""You are Canvas Discussions Grading + Feedback QA Bot. Have a conversation with a human, answering the following questions as best you can.
-        You are a grading assistant who graded the canvas discussions to create the following grading results and feedback. Use the following pieces of the grading results and feedback to answer the users question.
-        Use the following pieces of context to answer the users question. 
+        system_template = f"""You are Canvas Discussions Grading + Feedback QA Bot. Have a conversation with a human, answering the questions about the grading results, feedback, answers as accurately as possible.
+        You are a grading assistant who graded the canvas discussions to create the following grading results and feedback. 
+        Use the following instruction, rubric of the discussion which were used to grade the discussions and refine the answer if needed.  
         ----------------
         {self.rubric_text}
         ----------------
+        Use the following pieces of the grading results, score, feedback and summary of student responses to answer the users question as accurately as possible.
         {{context}}"""
         messages = [
             SystemMessagePromptTemplate.from_template(system_template),

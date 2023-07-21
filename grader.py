@@ -2,23 +2,19 @@ import asyncio
 import csv
 import glob
 import json
+import os
 import shutil
 from datetime import datetime
 from typing import Optional
 
 from langchain import PromptTemplate
-from langchain.chains import LLMChain, MapReduceChain
-from langchain.chains.combine_documents.map_reduce import MapReduceDocumentsChain, ReduceDocumentsChain
-from langchain.chains.combine_documents.stuff import StuffDocumentsChain
-from langchain.chains.summarize import load_summarize_chain
+from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import DirectoryLoader, UnstructuredHTMLLoader
 from langchain.output_parsers import PydanticOutputParser
-from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter, Language
 from pathvalidate import sanitize_filename
 from pydantic import BaseModel, Field
 from tqdm import tqdm
-import os
 
 
 class Grader:
@@ -69,16 +65,16 @@ class Grader:
         self.title = None  # Initialize title
         for r in rubric:
             if 'description' in r and 'ratings' in r:
-                rubric_text.append(f"description:{r['description']}\n" + "\n".join(
-                    [f"points:{rating['points']} points: {rating['description']}" for rating in r['ratings']]))
+                rubric_text.append(f"RUBRIC CATEGORY: {r['description']}\n" + "\n".join(
+                    [f"POINTS: {rating['points']} CRITERIA: {rating['description']}" for rating in r['ratings']]))
             elif 'points_possible' in r:
-                rubric_text.append(f"points_possible:{r['points_possible']}")
+                rubric_text.append(f"MAX POINTS POSSIBLE: {r['points_possible']}")
                 print("added points_possible")
             elif 'title' in r:  # Check if title exists in rubric
                 self.title = r['title']  # Save title for later use
-                rubric_text.append(f"title:{self.title}")
+                rubric_text.append(f"TITLE: {self.title}")
             elif 'instruction' in r:
-                rubric_text.append(f"instruction:{r['instruction']}")
+                rubric_text.append(f"DISCUSSION INSTRUCTIONS: {r['instruction']}")
 
         rubric_text = "\n".join(rubric_text)
         # print(rubric_text) Add this to log when moving to application
@@ -100,7 +96,7 @@ class Grader:
     def create_reduce_prompt(self):
         reduce_template_string = f"""I am a Canvas Discussion Grader! I am here to grade the following summarized sections of canvas discussion responses of the student on the basis of instructions and rubric provided.
         --------------------
-        To grade student discussion, I will follow the rubric below. I will not deviate from the grading scheme.
+        To grade student discussion, I will use the discussion instructions and rubric below. I will not deviate from the grading scheme.
         {self.rubric_text}
         --------------------
         I will be able to identify each student by name, their key interests, key features pertinent to the discussion intruction and rubric.
