@@ -9,8 +9,9 @@ from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 
 from grader import Grader
+from grader_qa import GraderQA
 from ingest import ingest_canvas_discussions
-from utils import GraderQA
+from utils import reset_folder
 
 load_dotenv()
 
@@ -122,39 +123,52 @@ def get_grading_status(history):
             grader_qa = GraderQA(grader, embeddings)
         if len(history) == 1:
             history = history + [(None, 'Grading is already complete. You can now ask questions')]
-        enable_fields(False, False, False, False, True, True, True)
+        # enable_fields(False, False, False, False, True, True, True)
     # Check if data is ingested
     elif len(glob.glob("docs/*.json")) > 0 and len(glob.glob("docs/*.html")):
         if not grader_qa:
             grader = Grader(qa_model)
         if len(history) == 1:
             history = history + [(None, 'Canvas data is already ingested. You can grade discussions now')]
-        enable_fields(False, False, False, True, True, False, False)
+        # enable_fields(False, False, False, True, True, False, False)
     else:
         history = history + [(None, 'Please ingest data and start grading')]
-        url.disabled = True
-        enable_fields(True, True, True, True, True, False, False)
+        # enable_fields(True, True, True, True, True, False, False)
     return history
 
 
 # handle enable/disable of fields
 def enable_fields(url_status, canvas_api_key_status, submit_status, grade_status,
                   download_status, chatbot_txt_status, chatbot_btn_status):
-    url.interactive = url_status
-    canvas_api_key.interactive = canvas_api_key_status
-    submit.interactive = submit_status
-    grade.interactive = grade_status
-    download.interactive = download_status
-    txt.interactive = chatbot_txt_status
-    ask.interactive = chatbot_btn_status
+    url.update(interactive=url_status)
+    canvas_api_key.update(interactive=canvas_api_key_status)
+    submit.update(interactive=submit_status)
+    grade.update(interactive=grade_status)
+    download.update(interactive=download_status)
+    txt.update(interactive=chatbot_txt_status)
+    ask.update(interactive=chatbot_btn_status)
+
     if not chatbot_txt_status:
-        txt.placeholder = "Please grade discussions first"
+        txt.update(placeholder="Please grade discussions first")
     else:
-        txt.placeholder = "Ask a question"
+        txt.update(placeholder="Ask a question")
     if not url_status:
-        url.placeholder = "Data already ingested"
+        url.update(placeholder="Data already ingested")
     if not canvas_api_key_status:
-        canvas_api_key.placeholder = "Data already ingested"
+        canvas_api_key.update(placeholder="Data already ingested")
+    return url, canvas_api_key, submit, grade, download, txt, ask
+
+
+def reset_data(history):
+    # Use shutil.rmtree() to delete output, docs, and vector_stores folders, reset grader and grader_qa, and get_grading_status, reset and return history
+    global grader, grader_qa
+    reset_folder('output')
+    reset_folder('docs')
+    reset_folder('vector_stores')
+    grader = None
+    grader_qa = None
+    history = [(None, 'Data reset successfully')]
+    return history
 
 
 def bot(history):
@@ -210,9 +224,12 @@ with gr.Blocks() as demo:
         bot, chatbot, chatbot
     )
 
-    ask.click(add_text, inputs=[chatbot, txt], outputs=[chatbot, txt], postprocess=False,).then(
+    ask.click(add_text, inputs=[chatbot, txt], outputs=[chatbot, txt], postprocess=False, ).then(
         bot, chatbot, chatbot
     )
+
+    reset.click(reset_data, inputs=[chatbot], outputs=[chatbot], postprocess=False, show_progress=True, ).success(
+        bot, chatbot, chatbot)
 
 if __name__ == "__main__":
     demo.queue()
