@@ -25,7 +25,8 @@ class Grader:
         self.model = model
         self.rubric_file = 'docs/rubric_data.json'
         self.discussions_file_path = "docs/discussion_entries.json"
-        self.fieldnames = ['student_name', 'total_score', 'student_feedback', 'grader_comments', 'summary']
+        self.fieldnames = ['student_name', 'total_score', 'score_breakdown', 'grader_comments', 'student_feedback',
+                           'summary']
         self.docs = self.get_html_files()
         self.llm = ChatOpenAI(temperature=0, model_name=model)
         self.parser: PydanticOutputParser = self.create_parser()
@@ -42,16 +43,18 @@ class Grader:
     class ToolArgsSchema(BaseModel):
         student_name: Optional[str] = Field(description="The name of the student")
         total_score: int = Field(description="The grade of the student's answer")
-        student_feedback: Optional[str] = Field(
-            description="The developmental feedback from Grader's point of view to the student, some examples are: 'Great work, ...', 'Although, your submission is relevant to the question, it doesn't answer the question entirely...'. Give customized feedback based on student's answer")
+        score_breakdown: Optional[str] = Field(description="The grade split breakup based on rubric")
         grader_comments: Optional[str] = Field(
             description="The grade split breakup based on rubric added as grader's one liner customized comments to explain how the grade was calculated for that particular student's answer")
+        student_feedback: Optional[str] = Field(
+            description="The developmental feedback from Grader's point of view to the student, some examples are: 'Great work, ...', 'Although, your submission is relevant to the question, it doesn't answer the question entirely...'. Give customized feedback based on student's answer")
         summary: Optional[str] = Field(
             description="The overall summary of the student's answer outlining key points from the student's answer based on the rubric which can be used as a portion of a vectorstore, used to answer summary based questions about all the discussions")
 
         class Config:
             schema_extra = {
-                "required": ["student_name", "total_score", "student_feedback", "grader_comments", "summary"]
+                "required": ["student_name", "total_score", "score_breakdown", "grader_comments", "student_feedback",
+                             "summary"]
             }
 
     def create_parser(self):

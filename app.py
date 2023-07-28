@@ -1,7 +1,9 @@
 import asyncio
 import glob
 import os
+import shutil
 import time
+import traceback
 
 import gradio as gr
 from dotenv import load_dotenv
@@ -40,13 +42,18 @@ def run_model(text):
     global grader, grader_qa
     start_time = time.time()
     print("start time:" + str(start_time))
-    response = grader_qa.chain(text)
+    try:
+        response = grader_qa.agent.run(text)
+    except Exception as e:
+        response = "I need a break. Please ask me again in a few minutes"
+        print(traceback.format_exc())
+
     sources = []
-    for document in response['source_documents']:
-        sources.append(str(document.metadata))
+    # for document in response['source_documents']:
+    #     sources.append(str(document.metadata))
 
     source = ','.join(set(sources))
-    response = response['answer'] + '\nSources: ' + str(len(sources))
+    # response = response['answer'] + '\nSources: ' + str(len(sources))
     end_time = time.time()
     # # If response contains string `SOURCES:`, then add a \n before `SOURCES`
     # if "SOURCES:" in response:
@@ -171,6 +178,31 @@ def reset_data(history):
     return history
 
 
+def get_output_dir(orig_name):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(script_dir, 'output', orig_name)
+    return output_dir
+
+
+def upload_grading_results(file, history):
+    global grader, grader_qa
+    # Delete output folder and save the file in output folder
+    if os.path.isdir('output'):
+        shutil.rmtree('output')
+    os.mkdir('output')
+    if os.path.isdir('vector_stores'):
+        shutil.rmtree('vector_stores')
+    os.mkdir('vector_stores')
+    # get current path
+    path = os.path.join("output", os.path.basename(file.name))
+    # Copy the uploaded file from its temporary location to the desired location
+    shutil.copyfile(file.name, path)
+    grader = Grader(qa_model)
+    grader_qa = GraderQA(grader, embeddings)
+    history = [(None, 'Grading results uploaded successfully')]
+    return history
+
+
 def bot(history):
     return get_grading_status(history)
 
@@ -203,6 +235,7 @@ with gr.Blocks() as demo:
                 label="Ask questions about how students did on the discussion",
                 placeholder="Enter text and press enter, or upload an image", lines=1
             )
+        upload = gr.UploadButton(label="Upload grading results", type="file", file_types=["csv"], scale=0.5)
         ask = gr.Button(value="Ask", variant="secondary", scale=1)
 
     chatbot.value = get_first_message([])
@@ -229,6 +262,9 @@ with gr.Blocks() as demo:
     )
 
     reset.click(reset_data, inputs=[chatbot], outputs=[chatbot], postprocess=False, show_progress=True, ).success(
+        bot, chatbot, chatbot)
+
+    upload.upload(upload_grading_results, inputs=[upload, chatbot], outputs=[chatbot], postprocess=False, ).then(
         bot, chatbot, chatbot)
 
 if __name__ == "__main__":
