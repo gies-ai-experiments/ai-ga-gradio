@@ -199,7 +199,7 @@ def upload_grading_results(file, history):
     # Copy the uploaded file from its temporary location to the desired location
     shutil.copyfile(file.name, path)
     grader_qa = CSVAgent(llm, embeddings, path)
-    history = [(None, 'Grading results uploaded successfully')]
+    history = [(None, 'Grading results uploaded successfully. Start Chatting!')]
     return history
 
 
