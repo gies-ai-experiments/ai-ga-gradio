@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 
+from csv_agent import CSVAgent
 from grader import Grader
 from grader_qa import GraderQA
 from ingest import ingest_canvas_discussions
@@ -197,14 +198,13 @@ def upload_grading_results(file, history):
     path = os.path.join("output", os.path.basename(file.name))
     # Copy the uploaded file from its temporary location to the desired location
     shutil.copyfile(file.name, path)
-    grader = Grader(qa_model)
-    grader_qa = GraderQA(grader, embeddings)
+    grader_qa = CSVAgent(llm, embeddings, path)
     history = [(None, 'Grading results uploaded successfully')]
     return history
 
 
 def bot(history):
-    return get_grading_status(history)
+    return history
 
 
 with gr.Blocks() as demo:
