@@ -29,6 +29,8 @@ embeddings = OpenAIEmbeddings(model='text-embedding-ada-002')
 
 grader = None
 grader_qa = None
+disabled = gr.update(interactive=False)
+enabled = gr.update(interactive=True)
 
 
 def add_text(history, text):
@@ -77,7 +79,7 @@ def ingest(url, canvas_api_key, history):
     grader = Grader(grading_model)
     response = "Ingested canvas data successfully"
     history = history + [(text, response)]
-    return history
+    return history, disabled, disabled, disabled, enabled
 
 
 def start_grading(history):
@@ -100,7 +102,7 @@ def start_grading(history):
     else:
         response = "Please ingest data before grading"
     history = history + [(text, response)]
-    return history
+    return history, disabled, enabled, enabled, enabled
 
 
 def start_downloading():
@@ -131,40 +133,39 @@ def get_grading_status(history):
             grader_qa = GraderQA(grader, embeddings)
         if len(history) == 1:
             history = history + [(None, 'Grading is already complete. You can now ask questions')]
-        # enable_fields(False, False, False, False, True, True, True)
+        enable_fields(False, False, False, False, True, True, True)
     # Check if data is ingested
     elif len(glob.glob("docs/*.json")) > 0 and len(glob.glob("docs/*.html")):
         if not grader_qa:
             grader = Grader(qa_model)
         if len(history) == 1:
             history = history + [(None, 'Canvas data is already ingested. You can grade discussions now')]
-        # enable_fields(False, False, False, True, True, False, False)
+        enable_fields(False, False, False, True, True, False, False)
     else:
         history = history + [(None, 'Please ingest data and start grading')]
-        # enable_fields(True, True, True, True, True, False, False)
+        enable_fields(True, True, True, False, False, False, False)
     return history
 
 
 # handle enable/disable of fields
 def enable_fields(url_status, canvas_api_key_status, submit_status, grade_status,
                   download_status, chatbot_txt_status, chatbot_btn_status):
-    url.update(interactive=url_status)
-    canvas_api_key.update(interactive=canvas_api_key_status)
-    submit.update(interactive=submit_status)
-    grade.update(interactive=grade_status)
-    download.update(interactive=download_status)
-    txt.update(interactive=chatbot_txt_status)
-    ask.update(interactive=chatbot_btn_status)
+    url.interactive = url_status
+    canvas_api_key.interactive = canvas_api_key_status
+    submit.interactive = submit_status
+    grade.interactive = grade_status
+    download.interactive = download_status
+    txt.interactive = chatbot_txt_status
+    ask.interactive = chatbot_btn_status
 
     if not chatbot_txt_status:
-        txt.update(placeholder="Please grade discussions first")
+        txt.placeholder = "Please grade discussions first"
     else:
-        txt.update(placeholder="Ask a question")
+        txt.placeholder = "Ask a question"
     if not url_status:
-        url.update(placeholder="Data already ingested")
+        url.placeholder = "Data already ingested"
     if not canvas_api_key_status:
-        canvas_api_key.update(placeholder="Data already ingested")
-    return url, canvas_api_key, submit, grade, download, txt, ask
+        canvas_api_key.placeholder = "Data already ingested"
 
 
 def reset_data(history):
@@ -239,12 +240,12 @@ with gr.Blocks() as demo:
         ask = gr.Button(value="Ask", variant="secondary", scale=1)
 
     chatbot.value = get_first_message([])
-    submit.click(ingest, inputs=[url, canvas_api_key, chatbot], outputs=[chatbot],
+    submit.click(ingest, inputs=[url, canvas_api_key, chatbot], outputs=[chatbot, url, canvas_api_key, submit, grade],
                  postprocess=False).then(
         bot, chatbot, chatbot
     )
 
-    grade.click(start_grading, inputs=[chatbot], outputs=[chatbot],
+    grade.click(start_grading, inputs=[chatbot], outputs=[chatbot, grade, download, txt, ask],
                 postprocess=False).then(
         bot, chatbot, chatbot
     )
