@@ -4,6 +4,8 @@ import os
 import shutil
 import time
 import traceback
+import pandas as pd
+import utils
 
 import gradio as gr
 from dotenv import load_dotenv
@@ -106,13 +108,19 @@ def start_grading(history):
 
 
 def start_downloading():
-    files = glob.glob("output/*.csv")
-    if files:
-        file = files[0]
-        return gr.outputs.File(file)
-    else:
-        return "File not found"
+    # files = glob.glob("output/*.csv")
+    # if files:
+    #     file = files[0]
+    #     return gr.outputs.File(file)
+    # else:
+    #     return "File not found"
+    print(grader.csv)
+    return grader.csv, gr.update(visible=True), gr.update(value=process_csv_text(), visible=True)
 
+def get_headers():
+    df = process_csv_text()
+    return list(df.columns)
+    
 
 def get_first_message(history):
     global grader_qa
@@ -168,16 +176,28 @@ def enable_fields(url_status, canvas_api_key_status, submit_status, grade_status
         canvas_api_key.placeholder = "Data already ingested"
 
 
-def reset_data(history):
+def reset_data():
     # Use shutil.rmtree() to delete output, docs, and vector_stores folders, reset grader and grader_qa, and get_grading_status, reset and return history
     global grader, grader_qa
-    reset_folder('output')
-    reset_folder('docs')
-    reset_folder('vector_stores')
-    grader = None
-    grader_qa = None
-    history = [(None, 'Data reset successfully')]
-    return history
+    #If there's data in docs/output folder during grading
+    if os.path.isdir('output') and len(glob.glob("output/*.csv")) > 0 and len(glob.glob("docs/*.json")) > 0 and len(
+            glob.glob("docs/*.html")) > 0:
+        reset_folder('output')
+        reset_folder('docs')
+        grader = None
+        grader_qa = None
+        history = [(None, 'Data reset successfully')]
+        return history
+    # If there's data in docs folder
+    elif len(glob.glob("docs/*.json")) > 0 and len(glob.glob("docs/*.html")):
+        reset_folder('docs')
+        history = [(None, 'Data reset successfully')]
+        return history
+    #If there's data in vector_stores folder
+    elif len(glob.glob("vector_stores/*.faiss")) > 0 or len(glob.glob("vector_stores/*.pkl")) > 0:
+        reset_folder('vector_stores')
+        history = [(None, 'Data reset successfully')]
+        return history
 
 
 def get_output_dir(orig_name):
@@ -207,6 +227,10 @@ def upload_grading_results(file, history):
 def bot(history):
     return history
 
+def process_csv_text():
+    file_path = utils.get_csv_file_name()
+    df = pd.read_csv(file_path)
+    return df
 
 with gr.Blocks() as demo:
     gr.Markdown(f"<h2><center>{'Canvas Discussion Grading With Feedback'}</center></h2>")
@@ -222,10 +246,16 @@ with gr.Blocks() as demo:
             placeholder="Enter your Canvas API Key", type="password"
         )
 
-    with gr.Row():
         submit = gr.Button(value="Submit", variant="secondary", )
+    with gr.Row():
+        table = gr.Dataframe(label ='Canvas CSV Output', type="pandas", overflow_row_behaviour="paginate", visible = False, wrap=True)
+
+
+    with gr.Row():
+        
         grade = gr.Button(value="Grade", variant="secondary")
         download = gr.Button(value="Download", variant="secondary")
+        file = gr.components.File(label="CSV Output", container=False, visible=False).style(height=100)
         reset = gr.Button(value="Reset", variant="secondary")
 
     chatbot = gr.Chatbot([], label="Chat with grading results", elem_id="chatbot", height=400)
@@ -240,6 +270,10 @@ with gr.Blocks() as demo:
         ask = gr.Button(value="Ask", variant="secondary", scale=1)
 
     chatbot.value = get_first_message([])
+    
+    with gr.Row():
+        table = gr.Dataframe(label ='Canvas CSV Output', type="pandas", overflow_row_behaviour="paginate", visible = False, wrap=True)
+    
     submit.click(ingest, inputs=[url, canvas_api_key, chatbot], outputs=[chatbot, url, canvas_api_key, submit, grade],
                  postprocess=False).then(
         bot, chatbot, chatbot
@@ -250,7 +284,7 @@ with gr.Blocks() as demo:
         bot, chatbot, chatbot
     )
 
-    download.click(start_downloading, inputs=[], outputs=[chatbot], postprocess=False).then(
+    download.click(start_downloading, inputs=[], outputs=[file, file, table]).then(
         bot, chatbot, chatbot
     )
 
@@ -262,7 +296,7 @@ with gr.Blocks() as demo:
         bot, chatbot, chatbot
     )
 
-    reset.click(reset_data, inputs=[chatbot], outputs=[chatbot], postprocess=False, show_progress=True, ).success(
+    reset.click(reset_data, inputs=[], outputs=[], postprocess=False, show_progress=True, ).success(
         bot, chatbot, chatbot)
 
     upload.upload(upload_grading_results, inputs=[upload, chatbot], outputs=[chatbot], postprocess=False, ).then(
