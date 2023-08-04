@@ -179,7 +179,7 @@ def enable_fields(url_status, canvas_api_key_status, submit_status, grade_status
 def reset_data():
     # Use shutil.rmtree() to delete output, docs, and vector_stores folders, reset grader and grader_qa, and get_grading_status, reset and return history
     global grader, grader_qa
-    #If there's data in docs/output folder during grading
+    #If there's data in docs/output folder during grading [During Grading]
     if os.path.isdir('output') and len(glob.glob("output/*.csv")) > 0 and len(glob.glob("docs/*.json")) > 0 and len(
             glob.glob("docs/*.html")) > 0:
         reset_folder('output')
@@ -187,17 +187,17 @@ def reset_data():
         grader = None
         grader_qa = None
         history = [(None, 'Data reset successfully')]
-        return history
-    # If there's data in docs folder
+        return history, enabled, enabled, enabled, disabled, disabled, disabled
+    # If there's data in docs folder [During Ingestion]
     elif len(glob.glob("docs/*.json")) > 0 and len(glob.glob("docs/*.html")):
         reset_folder('docs')
         history = [(None, 'Data reset successfully')]
-        return history
+        return history, enabled, enabled, enabled, disabled, disabled, disabled
     #If there's data in vector_stores folder
     elif len(glob.glob("vector_stores/*.faiss")) > 0 or len(glob.glob("vector_stores/*.pkl")) > 0:
         reset_folder('vector_stores')
         history = [(None, 'Data reset successfully')]
-        return history
+        return history, enabled, enabled, enabled, disabled, disabled, disabled
 
 
 def get_output_dir(orig_name):
@@ -256,7 +256,7 @@ with gr.Blocks() as demo:
         grade = gr.Button(value="Grade", variant="secondary")
         download = gr.Button(value="Download", variant="secondary")
         file = gr.components.File(label="CSV Output", container=False, visible=False).style(height=100)
-        reset = gr.Button(value="Reset", variant="secondary")
+        reset = gr.ClearButton(value="Reset")
 
     chatbot = gr.Chatbot([], label="Chat with grading results", elem_id="chatbot", height=400)
 
@@ -296,7 +296,7 @@ with gr.Blocks() as demo:
         bot, chatbot, chatbot
     )
 
-    reset.click(reset_data, inputs=[], outputs=[], postprocess=False, show_progress=True, ).success(
+    reset.click(reset_data, inputs=[], outputs=[chatbot, url, canvas_api_key, submit, table, grade, download]).success(
         bot, chatbot, chatbot)
 
     upload.upload(upload_grading_results, inputs=[upload, chatbot], outputs=[chatbot], postprocess=False, ).then(
