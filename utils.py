@@ -1,6 +1,7 @@
 import os
 import shutil
 import time
+import glob
 
 from langchain import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -75,3 +76,12 @@ def get_csv_files(csv_file, source_column, field_names=None):
 def index_exists(pickle_file, index_file):
     return os.path.isfile(pickle_file) and os.path.isfile(index_file) and os.path.getsize(
         pickle_file) > 0
+
+
+def get_csv_file_name():
+        output_dir = 'output'
+        if os.path.exists(output_dir):
+            csv_files = glob.glob(os.path.join(output_dir, '*.csv'))
+            if csv_files:
+                return csv_files[0]  # return the first csv file found
+        return None
