@@ -1,11 +1,11 @@
+import json
 import os
 import re
-import json
 import shutil
+from typing import List
 
 import requests
 from bs4 import BeautifulSoup
-from typing import List
 
 rubric = None
 message = None
@@ -35,17 +35,19 @@ class DiscussionEntry:
 
 def extract_entries(entries, participants):
     result = []
+    counter = 0
     for entry in entries:
         if 'message' in entry and 'deleted' not in entry:
             id = entry['id']
             parent_id = entry['parent_id']
             user_id = entry['user_id']
-            name = next((p['display_name'] for p in participants if p['id'] == user_id), None)
+            name = next((f"Student {counter}" for p in participants if p['id'] == user_id), None)
             message = entry['message']
             replies = []
             if 'replies' in entry:
                 replies = extract_entries(entry['replies'], participants)
             result.append(DiscussionEntry(id, parent_id, name, message, replies))
+            counter += 1
     return result
 
 def save_messages(entries, group_id=None):

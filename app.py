@@ -4,14 +4,14 @@ import os
 import shutil
 import time
 import traceback
-import pandas as pd
-import utils
 
 import gradio as gr
+import pandas as pd
 from dotenv import load_dotenv
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 
+import utils
 from csv_agent import CSVAgent
 from grader import Grader
 from grader_qa import GraderQA
@@ -246,15 +246,13 @@ with gr.Blocks() as demo:
             placeholder="Enter your Canvas API Key", type="password"
         )
 
-        submit = gr.Button(value="Submit", variant="secondary", )
+        submit = gr.Button(value="Step 1: Submit", variant="secondary", )
     with gr.Row():
         table = gr.Dataframe(label ='Canvas CSV Output', type="pandas", overflow_row_behaviour="paginate", visible = False, wrap=True)
 
-
     with gr.Row():
-        
-        grade = gr.Button(value="Grade", variant="secondary")
-        download = gr.Button(value="Download", variant="secondary")
+        grade = gr.Button(value="Step 2: Grade", variant="secondary")
+        download = gr.Button(value="Step 3: View Grading Output", variant="secondary")
         file = gr.components.File(label="CSV Output", container=False, visible=False).style(height=100)
         reset = gr.ClearButton(value="Reset")
 
@@ -266,8 +264,8 @@ with gr.Blocks() as demo:
                 label="Ask questions about how students did on the discussion",
                 placeholder="Enter text and press enter, or upload an image", lines=1
             )
+        ask = gr.Button(value="Step 4: Chat", variant="secondary", scale=1)
         upload = gr.UploadButton(label="Upload grading results", type="file", file_types=["csv"], scale=0.5)
-        ask = gr.Button(value="Ask", variant="secondary", scale=1)
 
     chatbot.value = get_first_message([])
     
