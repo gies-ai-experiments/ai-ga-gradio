@@ -153,15 +153,15 @@ def ingest_canvas_discussions(input_url, access_token):
             print(f'Error: {instruction_response.text}')
 
         # Check if the discussion is an individual discussion with associated group-based discussions
-        if 'group_topic_children' in instruction_data:
-            # Extract and save group-based discussions
+        if 'group_topic_children' in instruction_data and len(instruction_data['group_topic_children']) > 0:
+            # Extract and save group-based discussion posts
             group_entries = extract_group_discussions(instruction_data['group_topic_children'], headers)
             os.makedirs('docs', exist_ok=True)
-            print("Extracted group discussion entries")
+            print("Extracted group discussion entries: {}" + str(len(group_entries)))
             for group_entry in group_entries:
                 save_messages(group_entry['entries'], group_entry['group_id'])
         else:
-            # Extract and save standalone individual or group-based discussion
+            # Extract and save standalone individual discussion posts
             individual_entries = extract_individual_discussion(discussion_url, headers)
             print("Extracted individual discussion entries")
             os.makedirs('docs', exist_ok=True)
