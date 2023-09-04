@@ -38,7 +38,7 @@ class Grader:
         self.csv = self.get_csv_file_name()
         self.outputs = []
         self.completed = 0
-        self.lock = asyncio.Lock()
+        self.lock = None
 
     class ToolArgsSchema(BaseModel):
         student_name: Optional[str] = Field(description="The name of the student")
@@ -56,6 +56,9 @@ class Grader:
                 "required": ["student_name", "total_score", "score_breakdown", "grader_comments", "student_feedback",
                              "summary"]
             }
+    
+    async def initialize(self):
+        self.lock = asyncio.Lock()
 
     def create_parser(self):
         # print("in parser")

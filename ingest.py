@@ -138,6 +138,7 @@ def ingest_canvas_discussions(input_url, access_token):
                 points_possible = instruction_data['assignment']['points_possible']
                 rubric.append({'points_possible': points_possible})
 
+            print("Creating docs folder")
             # Check if the docs folder exists
             if os.path.exists('docs'):
                 #delete the folder
@@ -145,6 +146,7 @@ def ingest_canvas_discussions(input_url, access_token):
 
             # Create the docs folder
             os.makedirs('docs')
+            print("Created docs folder")            
             with open(rubric_file, 'w') as f:
                 json.dump(rubric, f)
 

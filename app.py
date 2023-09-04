@@ -82,6 +82,7 @@ def ingest(url, canvas_api_key, history):
     text = f"Downloaded discussion data from {url} to start grading"
     ingest_canvas_discussions(url, canvas_api_key)
     grader = Grader(grading_model)
+    asyncio.run(grader.initialize())
     response = "Ingested canvas data successfully"
     history = history + [(text, response)]
     return history, disabled, disabled, disabled, enabled
