@@ -21,6 +21,8 @@ from utils import reset_folder
 
 load_dotenv()
 
+azure_conn_string = os.environ['AZURE_CONN_STRING']
+
 pickle_file = "vector_stores/canvas-discussions.pkl"
 index_file = "vector_stores/canvas-discussions.index"
 
@@ -319,4 +321,5 @@ with gr.Blocks() as demo:
 if __name__ == "__main__":
     demo.queue()
     demo.queue(concurrency_count=5)
-    demo.launch(debug=True, )
+    port = int(os.environ.get('PORT', 7860))
+    demo.queue().launch(server_name="0.0.0.0", server_port=port)
