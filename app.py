@@ -4,15 +4,15 @@ import os
 import shutil
 import time
 import traceback
-import pandas as pd
-import utils
 
 from zipfile import ZipFile
 import gradio as gr
+import pandas as pd
 from dotenv import load_dotenv
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 
+import utils
 from csv_agent import CSVAgent
 from grader import Grader
 from grader_qa import GraderQA
@@ -212,7 +212,7 @@ def reset_data():
         url.placeholder = [(None, 'Enter your Canvas Discussion URL')]
         canvas_api_key.placeholder = [(None, 'Enter your Canvas API Key')]
         return history, enabled, enabled, enabled, disabled, disabled, disabled, disabled, disabled, disabled, disabled, disabled
-    
+
 def get_output_dir(orig_name):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = os.path.join(script_dir, 'output', orig_name)
@@ -249,7 +249,7 @@ def process_csv_text():
 
 with gr.Blocks() as demo:
     gr.Markdown(f"<h2><center>{'Canvas Discussion Grading With Feedback'}</center></h2>")
-    
+
 
     with gr.Row():
         url = gr.Textbox(
@@ -261,29 +261,29 @@ with gr.Blocks() as demo:
             label="Canvas API Key",
             placeholder="Enter your Canvas API Key", type="password"
         )
-        submit = gr.Button(value="Submit", variant="secondary", )
+
+        submit = gr.Button(value="Step 1: Submit", variant="secondary", )
     with gr.Row():
         table = gr.Dataframe(label ='Canvas CSV Output', type="pandas", overflow_row_behaviour="paginate", visible = False, wrap=True)
 
     with gr.Row(equal_height=True):
-        
-        grade = gr.Button(value="Grade", variant="secondary")
-        download = gr.Button(value="Generate Output", variant="secondary")
+        grade = gr.Button(value="Step 2: Grade", variant="secondary")
+        download = gr.Button(value="Step 3: View Grading Output", variant="secondary")
         file = gr.components.File(label="CSV Output", container=False, visible=False).style(height=100)
         #reset = gr.ClearButton(value="Reset", components=[url, canvas_api_key, submit, table, grade, download])
         reset = gr.ClearButton(value="Reset")
 
     chatbot = gr.Chatbot([], label="Chat with grading results", elem_id="chatbot", height=400)
-    
+
     with gr.Row():
         with gr.Column(scale=3):
             txt = gr.Textbox(
                 label="Ask questions about how students did on the discussion",
                 placeholder="Enter text and press enter, or upload an image", lines=1
             )
-    
-        upload = gr.UploadButton(label="Upload grading results", type="file", file_types=["csv"], scale=1)
-        ask = gr.Button(value="Ask", variant="secondary", scale=1)
+        ask = gr.Button(value="Step 4: Chat", variant="secondary", scale=1)
+        upload = gr.UploadButton(label="Upload grading results", type="file", file_types=["csv"], scale=0.5)
+
     chatbot.value = get_first_message([])
     
     with gr.Row():
@@ -302,8 +302,8 @@ with gr.Blocks() as demo:
     download.click(start_downloading, inputs=[], outputs=[file, file, table]).then(
         bot, chatbot, chatbot
     )
-    
-    
+
+
     txt.submit(add_text, [chatbot, txt], [chatbot, txt], postprocess=False).then(
         bot, chatbot, chatbot
     )
